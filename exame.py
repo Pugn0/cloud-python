@@ -1,11 +1,34 @@
 import os
+import sqlite3
 
-# Definindo a pasta onde os arquivos .txt estão localizados
+# Definições iniciais
 pasta = 'clouds/exame/'
-
-# Certifique-se de que a pasta /filtro/ existe ou crie-a
 filtro_pasta = os.path.join(pasta, "filtro")
 os.makedirs(filtro_pasta, exist_ok=True)
+conn = sqlite3.connect('protocolos.db')
+cursor = conn.cursor()
+
+# Otimizações do SQLite
+cursor.execute('PRAGMA journal_mode=WAL')  # Melhora concorrência e performance de escrita
+cursor.execute('PRAGMA cache_size=-10000')  # Aumenta cache para reduzir I/O de disco
+cursor.execute('PRAGMA synchronous=OFF')  # Desativa sincronização de disco (cuidado com perda de dados)
+
+# Criação da tabela e índices
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS urls (
+    id INTEGER PRIMARY KEY,
+    protocolo TEXT,
+    url TEXT UNIQUE,
+    dado TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+)''')
+cursor.execute('CREATE INDEX IF NOT EXISTS idx_protocolo ON urls(protocolo)')
+cursor.execute('CREATE INDEX IF NOT EXISTS idx_url ON urls(url)')
+
+def atualizar_display(contagens_protocolos, linhas_ignoradas):
+    display = ' '.join([f"{proto}: {cont}" for proto, cont in contagens_protocolos.items() if cont > 0])
+    print(f"\r{display} | Linhas ignoradas: {linhas_ignoradas}", end="", flush=True)
+
 
 # Lista expandida de protocolos para procurar
 # Padrões de Internet e Redes (URI com base IANA)
@@ -33,36 +56,94 @@ protocolos = [
         'xfire://' 'xmlrpc.beep://' 'xmlrpc.beeps://' 'xmpp://' 'xri://' 'ymsgr://' 'z39.50r://' 'z39.50s://', 'oauth://', 'chrome-extension://', 'file:///', 'mailbox://',
         'moz-proxy://', 'pop://', 'content://'
     ]
-# Inicializando um dicionário para contar as ocorrências de cada protocolo
-contagem_protocolos = {protocolo: 0 for protocolo in protocolos}
 
-# Percorrendo os arquivos na pasta
+# Inicializa contagens de protocolos
+contagens_protocolos = {protocolo: 0 for protocolo in protocolos}
+
+# Criando/conectando ao banco de dados SQLite
+conn = sqlite3.connect('protocolos.db')
+cursor = conn.cursor()
+
+# Criando a tabela se não existir
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS urls (
+    id INTEGER PRIMARY KEY,
+    protocolo TEXT,
+    url TEXT UNIQUE,
+    dado TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+''')
+
+# Criando índice para acelerar as consultas por protocolo
+cursor.execute('CREATE INDEX IF NOT EXISTS idx_protocolo ON urls(protocolo)')
+cursor.execute('CREATE INDEX IF NOT EXISTS idx_url ON urls(url)')
+
+linhas_ignoradas = 0  # Contador para linhas ignoradas devido a duplicação
+
+# Função para inserir dados no banco de dados
+def inserir_protocolo(protocolo, linha):
+    global linhas_ignoradas, contagens_protocolos
+    try:
+        cursor.execute('INSERT INTO urls (protocolo, url, dado) VALUES (?, ?, ?)', (protocolo, linha, None))
+        conn.commit()
+        contagens_protocolos[protocolo] += 1
+        atualizar_display(contagens_protocolos, linhas_ignoradas)
+    except sqlite3.IntegrityError:
+        # Linha já existe no banco de dados, ignorando...
+        linhas_ignoradas += 1
+        atualizar_display(contagens_protocolos, linhas_ignoradas)
+
+# Lendo arquivos e processando linhas
 for arquivo in os.listdir(pasta):
     if arquivo.endswith('.txt'):
         caminho_completo = os.path.join(pasta, arquivo)
-        linhas_para_manter = []
-
+        
         with open(caminho_completo, 'r', encoding='utf-8', errors='ignore') as f:
             linhas = f.readlines()
 
         for linha in linhas:
-            encontrou_protocolo = False
             for protocolo in protocolos:
                 if protocolo in linha:
-                    encontrou_protocolo = True
-                    contagem_protocolos[protocolo] += linha.count(protocolo)
-                    nome_arquivo_protocolo = os.path.join(filtro_pasta, protocolo.split('://')[0] + '.txt')
-                    with open(nome_arquivo_protocolo, 'a', encoding='utf-8') as p_file:
-                        p_file.write(linha)
-                    # Atualiza a contagem em tempo real no console
-                    atualizacao = ' '.join([f"{proto.split('://')[0]}: {cont}" for proto, cont in contagem_protocolos.items() if cont > 0])
-                    print(f"\r{atualizacao}", end="", flush=True)
+                    inserir_protocolo(protocolo, linha.strip())
                     break  # Assumindo que uma linha vai para um arquivo baseado no primeiro protocolo encontrado
-            if not encontrou_protocolo:
-                linhas_para_manter.append(linha)
 
-        # Reescrever o arquivo original sem as linhas que contêm protocolos
-        with open(caminho_completo, 'w', encoding='utf-8', errors='ignore') as f:
-            f.writelines(linhas_para_manter)
+# Fechando a conexão com o banco de dados
+conn.close()
 
+print("\nProcessamento concluído.")
+contagens_protocolos = {protocolo: 0 for protocolo in protocolos}
+linhas_ignoradas = 0
+
+# Função para inserir dados no banco de dados utilizando inserção em massa dentro de uma transação
+def inserir_protocolo_em_massa(dados_para_inserir):
+    global linhas_ignoradas
+    try:
+        cursor.execute('BEGIN')
+        cursor.executemany('INSERT INTO urls (protocolo, url, dado) VALUES (?, ?, ?)', dados_para_inserir)
+        cursor.execute('COMMIT')
+    except sqlite3.IntegrityError:
+        linhas_ignoradas += len(dados_para_inserir)  # Ajustar de acordo com o comportamento esperado para duplicatas
+        cursor.execute('ROLLBACK')
+
+# Processamento de arquivos
+for arquivo in os.listdir(pasta):
+    if arquivo.endswith('.txt'):
+        caminho_completo = os.path.join(pasta, arquivo)
+        dados_para_inserir = []
+
+        with open(caminho_completo, 'r', encoding='utf-8', errors='ignore') as f:
+            for linha in f:
+                for protocolo in protocolos:
+                    if protocolo in linha:
+                        dados_para_inserir.append((protocolo, linha.strip(), None))
+                        contagens_protocolos[protocolo] += 1
+                        break
+
+        # Insere dados acumulados em massa
+        if dados_para_inserir:
+            inserir_protocolo_em_massa(dados_para_inserir)
+            atualizar_display(contagens_protocolos, linhas_ignoradas)
+
+conn.close()  # Fecha a conexão com o banco de dados ao final do processamento
 print("\nProcessamento concluído.")

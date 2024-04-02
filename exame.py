@@ -1,5 +1,4 @@
 import os
-import sys
 
 # Definindo a pasta onde os arquivos .txt estão localizados
 pasta = 'clouds/'
@@ -17,22 +16,18 @@ for arquivo in os.listdir(pasta):
         # Construindo o caminho completo para o arquivo
         caminho_completo = os.path.join(pasta, arquivo)
 
-        # Abrindo e lendo o arquivo
+        # Abrindo e lendo o arquivo linha por linha
         with open(caminho_completo, 'r', encoding='utf-8') as f:
-            conteudo = f.read()
+            for linha in f:
+                # Contando as ocorrências de cada protocolo na linha
+                for protocolo in protocolos:
+                    contagem_protocolos[protocolo] += linha.count(protocolo)
 
-            # Contando as ocorrências de cada protocolo no arquivo e atualizando a contagem
-            for protocolo in protocolos:
-                contagem_protocolos[protocolo] += conteudo.count(protocolo)
-
-            # Construindo a string de atualização
-            atualizacao = ' '.join([f"{proto}: {cont}" for proto, cont in contagem_protocolos.items()])
-
-            # Usando '\r' para voltar ao início da linha e 'end=""' para evitar nova linha
-            # O 'flush=True' força a saída imediata do texto
-            print(f"\r{atualizacao}", end="", flush=True)
+        # Atualizando a contagem em tempo real
+        atualizacao = ' '.join([f"{proto}: {cont}" for proto, cont in contagem_protocolos.items()])
+        print(f"\r{atualizacao}", end="", flush=True)
 
 # Quebra de linha final após o loop completar
 print("\n\nContagem final de protocolos encontrados:")
 for protocolo, contagem in contagem_protocolos.items():
-    print(f"{protocolo}: {contagem}")
+    print

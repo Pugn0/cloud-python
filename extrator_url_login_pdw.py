@@ -2,8 +2,7 @@ import os
 import ctypes
 import re
 import random
-import tkinter as tk
-from tkinter import filedialog
+
 # Definição das cores para a saída no terminal
 black = '\033[0;90m'
 red = '\033[0;91m'
@@ -56,29 +55,8 @@ def extract_url_login_password(line):
         return f"URL: {url}, Login: {login}, Senha: {senha}"
     return ""
 
-def select_file_or_directory(mode):
-    root = tk.Tk()
-    root.withdraw()  # Não queremos uma janela Tk completa, apenas a caixa de diálogo
-    if mode == '1':  # Selecionar um único arquivo
-        filename = filedialog.askopenfilename()
-        return [filename] if filename else []
-    elif mode == '2':  # Selecionar um diretório
-        directory = filedialog.askdirectory()
-        if directory:
-            return [os.path.join(directory, nome_arquivo) for nome_arquivo in os.listdir(directory) if nome_arquivo.endswith(".txt")]
-        else:
-            return []
-    else:
-        return []
-    
-
 # Pergunta se deseja processar um único arquivo ou todos do diretório
 modo_selecao = input(f"{green}[Deseja processar um único arquivo (1) ou todos do diretório (2)?]{off}: ").strip()
-arquivos = select_file_or_directory(modo_selecao)
-
-if not arquivos:
-    print(f"{red}Nenhum arquivo selecionado. Encerrando o programa.{off}")
-    exit()
 
 arquivos = []
 if modo_selecao == '1':

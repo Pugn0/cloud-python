@@ -25,12 +25,13 @@ def processar_arquivo(caminho_arquivo):
 
     separadores_encontrados = []
 
-    with open(caminho_arquivo, 'r') as arquivo:
+    with open(caminho_arquivo, 'r', encoding='utf-8') as arquivo:
         for linha in arquivo:
             separador = identificar_separador(linha.strip())
             if separador:
                 separadores_encontrados.append(separador)
-                print(f'Linha: {linha.strip()} | Separador encontrado: {separador}')
+            print(f'Linha: {linha.strip()} | Separador encontrado: {separador}')
+
 
     if separadores_encontrados:
         separador_mais_comum = max(set(separadores_encontrados), key=separadores_encontrados.count)

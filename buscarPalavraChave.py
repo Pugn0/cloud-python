@@ -20,16 +20,17 @@ def extrair_detalhes(linha):
         usuario = partes[1]
         senha = partes[2]
         
-        return dominio, usuario, senha
+        return dominio, usuario, senha, linha
     else:
-        return None, None, None
+        return None, None, None, None
 
 # Função para criar o objeto JSON
-def criar_json(dominio, usuario, senha):
+def criar_json(dominio, usuario, senha, linha):
     objeto = {
         "url": dominio,
         "username": usuario,
-        "password": senha
+        "password": senha,
+        "line": linha
     }
     return json.dumps(objeto, indent=2)
 
@@ -39,9 +40,9 @@ def processar_arquivo(caminho_do_arquivo, palavra_chave):
         with open(caminho_do_arquivo, 'r', encoding='utf-8', errors='ignore') as arquivo:
             for linha in arquivo:
                 if palavra_chave.lower() in linha.lower():
-                    dominio, usuario, senha = extrair_detalhes(linha.strip())
-                    if dominio and usuario and senha:
-                        objeto_json = criar_json(dominio, usuario, senha)
+                    dominio, usuario, senha, linha = extrair_detalhes(linha.strip())
+                    if dominio and usuario and senha and linha:
+                        objeto_json = criar_json(dominio, usuario, senha, linha)
                         print(objeto_json)
 
     except Exception as e:

@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import filedialog
 import json
 
+
 # Função para extrair detalhes da linha
 def extrair_detalhes(linha):
     # Remove o protocolo e "www" se presentes
@@ -13,16 +14,33 @@ def extrair_detalhes(linha):
     partes = re.split(r'[:;|, ]', linha_limpa, maxsplit=2)
     
     if len(partes) >= 3:
-        # Extrai o domínio, que pode incluir caminhos após o nome de domínio principal
-        # Até o primeiro delimitador de detalhes de login (usuário/senha)
-        dominio = partes[0]
-        # Assume que as partes restantes são o usuário e a senha, respectivamente
-        usuario = partes[1]
-        senha = partes[2]
-        
+        # Inicialmente atribui as partes extraídas à domínio, usuário e senha
+        dominio, usuario, senha = partes[0], partes[1], partes[2]
+
+        # Normaliza os dados para garantir a ordem correta
+        dominio, usuario, senha = normalizar_dados(dominio, usuario, senha)
+
         return dominio, usuario, senha, linha
     else:
         return None, None, None, None
+
+# Função para normalizar os dados extraídos
+def normalizar_dados(dominio, usuario, senha):
+    # Define a regra para identificar uma URL
+    url_pattern = re.compile(r'^(https?:\/\/)?(www\.)?[\w.-]+(\.[a-z]{2,})+\/?')
+    
+    # Verifica se 'dominio' não parece uma URL (e.g., parece um usuário ou senha),
+    # e se 'usuario' ou 'senha' parecem uma URL.
+    if not url_pattern.match(dominio) and (url_pattern.match(usuario) or url_pattern.match(senha)):
+        # Se 'usuario' parece mais com uma URL, assume que essa é a ordem invertida: usuário, senha, domínio
+        if url_pattern.match(usuario):
+            dominio, usuario, senha = usuario, senha, dominio
+        # Se 'senha' parece mais com uma URL, assume que essa é a ordem: senha, domínio, usuário
+        elif url_pattern.match(senha):
+            dominio, usuario, senha = senha, dominio, usuario
+    
+    # Retorna os dados corrigidos
+    return dominio, usuario, senha
 
 # Função para criar o objeto JSON
 def criar_json(dominio, usuario, senha, linha):
@@ -62,6 +80,7 @@ def selecionar_arquivo_e_palavra_chave():
         processar_arquivo(caminho_do_arquivo, palavra_chave)
     else:
         print("Nenhum arquivo foi selecionado.")
+
 
 if __name__ == "__main__":
     selecionar_arquivo_e_palavra_chave()

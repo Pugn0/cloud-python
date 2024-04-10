@@ -3,7 +3,7 @@ import time
 import tkinter as tk
 from tkinter import filedialog
 import json
-
+from datetime import datetime
 
 # Função para extrair detalhes da linha
 def extrair_detalhes(linha):
@@ -43,31 +43,49 @@ def normalizar_dados(dominio, usuario, senha):
     return dominio, usuario, senha
 
 # Função para criar o objeto JSON
-def criar_json(dominio, usuario, senha, linha):
+def criar_json(dominio, usuario, senha, linha, timestamp, source, category, email, phone, nick):
     objeto = {
         "url": dominio,
         "username": usuario,
         "password": senha,
-        "line": linha
+        "line": linha,
+        "collection_timestamp": timestamp,
+        "source": source,
+        "category": category,
+        "contact_email": email,
+        "contact_phone": phone,
+        "contact_nick": nick
     }
     return json.dumps(objeto, indent=2)
 
-# Função para processar o arquivo com filtro de palavra-chave
-def processar_arquivo(caminho_do_arquivo, palavra_chave):
+def processar_arquivo(caminho_do_arquivo, palavra_chave, source, category, email, phone, nick):
+    # Obtem a data e hora atual em UTC no formato ISO 8601
+    timestamp = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
     try:
         with open(caminho_do_arquivo, 'r', encoding='utf-8', errors='ignore') as arquivo:
+            resultados = []  # Lista para armazenar os resultados
             for linha in arquivo:
                 if palavra_chave.lower() in linha.lower():
                     dominio, usuario, senha, linha = extrair_detalhes(linha.strip())
-                    if dominio and usuario and senha and linha:
-                        objeto_json = criar_json(dominio, usuario, senha, linha)
+                    if dominio and usuario and senha:
+                        objeto_json = criar_json(dominio, usuario, senha, linha, timestamp, source, category, email, phone, nick)
+                        resultados.append(objeto_json)
                         print(objeto_json)
+
+        if resultados:
+            salvar_resultados = input("Deseja salvar os resultados em um arquivo? (S/N): ").strip().upper()
+            if salvar_resultados == 'S':
+                nome_arquivo = input("Digite o nome do arquivo para salvar (sem extensão): ")
+                nome_arquivo += ".txt"  # Adicionando a extensão de arquivo
+                local_arquivo = filedialog.asksaveasfilename(defaultextension=".txt", initialfile=nome_arquivo, title="Salvar como")
+                with open(local_arquivo, 'w') as arquivo_saida:
+                    for resultado in resultados:
+                        arquivo_saida.write(resultado + '\n')
+                print(f"Os resultados foram salvos em {local_arquivo}")
 
     except Exception as e:
         print(f"Ocorreu um erro ao processar o arquivo: {e}")
 
-
-# Inicializar a interface gráfica para seleção do arquivo e inserir palavra-chave
 def selecionar_arquivo_e_palavra_chave():
     root = tk.Tk()
     root.withdraw()  # Esconder a janela principal do Tkinter
@@ -77,7 +95,15 @@ def selecionar_arquivo_e_palavra_chave():
     )
     if caminho_do_arquivo:
         palavra_chave = input("Digite a palavra-chave para filtrar: ")
-        processar_arquivo(caminho_do_arquivo, palavra_chave)
+        # Solicita informações, exceto a data/hora da coleta
+        source = input("Origem da Coleta: ")
+        category = input("Categoria ou Tipo: ")
+        email = input("Informações de Contato - E-mail: ")
+        phone = input("Informações de Contato - Telefone: ")
+        nick = input("Informações de Contato - @Nick: ")
+        
+        # A data/hora da coleta é obtida automaticamente
+        processar_arquivo(caminho_do_arquivo, palavra_chave, source, category, email, phone, nick)
     else:
         print("Nenhum arquivo foi selecionado.")
 

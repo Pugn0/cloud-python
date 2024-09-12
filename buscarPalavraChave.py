@@ -112,4 +112,15 @@ def mostrar_resultados(resultados):
         print(f"{Fore.YELLOW}Nenhum resultado encontrado.")
 
 if __name__ == "__main__":
-    coletar_dados_e_processar()
+    while True:
+        try:
+            opcao = int(input("Escolha uma opção: \n1 - Continuar \n2 - Fechar \n> "))
+            if opcao == 1:
+                coletar_dados_e_processar()
+            elif opcao == 2:
+                print("Encerrando o programa...")
+                break
+            else:
+                print("Opção inválida. Por favor, escolha 1 ou 2.")
+        except ValueError:
+            print("Entrada inválida. Por favor, insira um número.")
